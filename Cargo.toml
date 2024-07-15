@@ -1,0 +1,48 @@
+[package]
+authors = ["Eric Nordelo <eric.nordelo39@gmail.com>"]
+version = "0.1.0"
+name = "poinciana"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+readme = "README.md"
+repository = "https://github.com/ericnordelo/poinciana"
+homepage = "https://github.com/ericnordelo/poinciana"
+documentation = "https://github.com/ericnordelo/poinciana"
+description = """
+A Cairo test generator based on the Branching Tree Technique and bulloak.
+"""
+keywords = ["cairo", "starknet", "testing", "compiler", "cli", "tree"]
+categories = [
+  "development-tools::testing",
+  "command-line-utilities",
+  "compilers",
+  "parsing",
+]
+exclude = ["/.github/*"]
+
+[[bin]]
+path = "src/main.rs"
+name = "poinciana"
+
+[dependencies]
+anyhow = "1.0.75"
+serde = { version = "1.0.204", features = ["derive"]}
+clap = { version = "4.3.19", features = ["derive"] }
+figment = "0.10.19"
+owo-colors = "4.0.0"
+cairo-lang-formatter = "2.7.0-dev.1"
+cairo-lang-compiler = "2.7.0-dev.1"
+cairo-lang-starknet = "2.7.0-dev.1"
+cairo-lang-syntax = "2.7.0-dev.1"
+thiserror = "1.0.61"
+unicode-xid = "0.2.4"
+indexmap = "2.2.6"
+itertools = "0.13.0"
+
+[dev-dependencies]
+pretty_assertions = { version = "1.4.0" }
+criterion = "0.5.1"
+
+[[bench]]
+name = "bench"
+harness = false
