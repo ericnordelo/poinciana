@@ -128,7 +128,10 @@ mod tests {
             )
             .unwrap(),
             IndexMap::from([
-                ("when stuff called".to_owned(), "when_stuff_called".to_owned()),
+                (
+                    "when stuff called".to_owned(),
+                    "when_stuff_called".to_owned()
+                ),
                 (
                     "when not stuff called".to_owned(),
                     "when_not_stuff_called".to_owned()
@@ -163,7 +166,10 @@ mod tests {
             )
             .unwrap(),
             IndexMap::from([
-                ("when stuff called".to_owned(), "when_stuff_called".to_owned()),
+                (
+                    "when stuff called".to_owned(),
+                    "when_stuff_called".to_owned()
+                ),
                 (
                     "when not stuff called".to_owned(),
                     "when_not_stuff_called".to_owned()
