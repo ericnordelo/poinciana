@@ -312,6 +312,13 @@ mod tests {
         Hir::Root(hir::Root { children })
     }
 
+    fn target(identifier: &str, children: Vec<Hir>) -> Hir {
+        Hir::Target(hir::Target {
+            identifier: identifier.to_owned(),
+            children,
+        })
+    }
+
     fn function(
         identifier: String,
         ty: hir::FunctionTy,
@@ -334,44 +341,50 @@ mod tests {
 
     #[test]
     fn one_child() {
-        let file_contents = "Foo_Test\n└── when something bad happens\n   └── it should panic";
+        let file_contents = "FooTest\n└── when something bad happens\n   └── it should revert";
         assert_eq!(
             translate(file_contents).unwrap(),
-            root(vec![function(
-                "test_panicWhen_SomethingBadHappens".to_owned(),
-                hir::FunctionTy::Test,
-                Span::new(Position::new(9, 2, 1), Position::new(74, 3, 23)),
-                None,
-                Some(vec![comment("it should panic".to_owned()),])
-            ),])
+            root(vec![target(
+                "FooTest",
+                vec![function(
+                    "test_panic_when_something_bad_happens".to_owned(),
+                    hir::FunctionTy::Test,
+                    Span::new(Position::new(9, 2, 1), Position::new(74, 3, 23)),
+                    None,
+                    Some(vec![comment("it should revert".to_owned()),])
+                ),]
+            )])
         );
     }
 
     #[test]
     fn two_children() {
-        let file_contents = r"FooBarTheBest_Test
+        let file_contents = r"FooBarTheBestTest
 ├── when stuff called
-│  └── it should panic
+│  └── it should revert
 └── given not stuff called
-   └── it should panic";
+   └── it should revert";
         assert_eq!(
             translate(file_contents).unwrap(),
-            root(vec![
-                function(
-                    "test_panicWhen_StuffCalled".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(19, 2, 1), Position::new(77, 3, 23)),
-                    None,
-                    Some(vec![comment("it should panic".to_owned()),])
-                ),
-                function(
-                    "test_panicGiven_NotStuffCalled".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(79, 4, 1), Position::new(140, 5, 23)),
-                    None,
-                    Some(vec![comment("it should panic".to_owned()),])
-                ),
-            ])
+            root(vec![target(
+                "FooBarTheBestTest",
+                vec![
+                    function(
+                        "test_panic_when_stuff_called".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(18, 2, 1), Position::new(76, 3, 23)),
+                        None,
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                    function(
+                        "test_panic_given_not_stuff_called".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(78, 4, 1), Position::new(139, 5, 23)),
+                        None,
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                ]
+            )],)
         );
     }
 
@@ -379,51 +392,54 @@ mod tests {
     fn action_with_sibling_condition() -> Result<()> {
         let file_contents = String::from(
             r"
-Foo_Test
+FooTest
 └── when stuff called
     ├── It should do stuff.
     ├── when a called
-    │   └── it should panic
+    │   └── it should revert
     ├── It should do more.
     └── when b called
-        └── it should not panic",
+        └── it should not revert",
         );
 
         assert_eq!(
             translate(&file_contents)?,
-            root(vec![
-                function(
-                    "whenStuffCalled".to_owned(),
-                    hir::FunctionTy::Modifier,
-                    Span::new(Position::new(10, 3, 1), Position::new(235, 9, 32)),
-                    None,
-                    None
-                ),
-                function(
-                    "test_WhenStuffCalled".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(10, 3, 1), Position::new(235, 9, 32)),
-                    Some(vec!["whenStuffCalled".to_owned()]),
-                    Some(vec![
-                        comment("It should do stuff.".to_owned()),
-                        comment("It should do more.".to_owned()),
-                    ])
-                ),
-                function(
-                    "test_panicWhen_ACalled".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(76, 5, 5), Position::new(135, 6, 28)),
-                    Some(vec!["whenStuffCalled".to_owned()]),
-                    Some(vec![comment("it should panic".to_owned()),])
-                ),
-                function(
-                    "test_WhenBCalled".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(174, 8, 5), Position::new(235, 9, 32)),
-                    Some(vec!["whenStuffCalled".to_owned()]),
-                    Some(vec![comment("it should not panic".to_owned()),])
-                ),
-            ])
+            root(vec![target(
+                "FooTest",
+                vec![
+                    function(
+                        "when_stuff_called".to_owned(),
+                        hir::FunctionTy::Modifier,
+                        Span::new(Position::new(9, 3, 1), Position::new(234, 9, 32)),
+                        None,
+                        None
+                    ),
+                    function(
+                        "test_when_stuff_called".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(9, 3, 1), Position::new(234, 9, 32)),
+                        Some(vec!["when_stuff_called".to_owned()]),
+                        Some(vec![
+                            comment("It should do stuff.".to_owned()),
+                            comment("It should do more.".to_owned()),
+                        ])
+                    ),
+                    function(
+                        "test_panic_when_a_called".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(75, 5, 5), Position::new(134, 6, 28)),
+                        Some(vec!["when_stuff_called".to_owned()]),
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                    function(
+                        "test_when_b_called".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(173, 8, 5), Position::new(234, 9, 32)),
+                        Some(vec!["when_stuff_called".to_owned()]),
+                        Some(vec![comment("it should not revert".to_owned()),])
+                    ),
+                ]
+            )],)
         );
 
         Ok(())

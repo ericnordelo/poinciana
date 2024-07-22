@@ -7,6 +7,7 @@ use crate::hir;
 pub trait Visitor {
     // TODO: Having one associated type per `visit_*` function scales
     // terribly, but for now it's fine. We should use a better abstraction.
+
     /// The result of visiting a `Root`.
     type RootOutput;
     /// The result of visiting a `Target`.
@@ -28,6 +29,7 @@ pub trait Visitor {
     /// A `Result` containing either the output of visiting the root node or an
     /// error.
     fn visit_root(&mut self, root: &hir::Root) -> Result<Self::RootOutput, Self::Error>;
+
     /// Visits a target node within the HIR.
     ///
     /// # Arguments
@@ -37,6 +39,7 @@ pub trait Visitor {
     /// A `Result` containing either the output of visiting the target
     /// node or an error.
     fn visit_target(&mut self, target: &hir::Target) -> Result<Self::RootOutput, Self::Error>;
+
     /// Visits a function definition node within the HIR.
     ///
     /// # Arguments
@@ -49,6 +52,7 @@ pub trait Visitor {
         &mut self,
         function: &hir::FunctionDefinition,
     ) -> Result<Self::FunctionDefinitionOutput, Self::Error>;
+
     /// Visits a comment node within the HIR. This allows for handling comments
     /// in the context of the HIR, potentially for documentation generation
     /// or other purposes.
