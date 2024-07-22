@@ -185,6 +185,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bulloak-syntax"
+version = "0.1.0"
+source = "git+https://github.com/alexfertel/bulloak#b3892d673e39726ec2303721ec2d0028003e4d85"
+dependencies = [
+ "anyhow",
+ "thiserror",
+ "unicode-xid",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1616,10 +1626,10 @@ name = "poinciana"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bulloak-syntax",
  "cairo-lang-compiler",
  "cairo-lang-formatter",
  "cairo-lang-starknet",
- "cairo-lang-syntax",
  "clap",
  "criterion",
  "figment",

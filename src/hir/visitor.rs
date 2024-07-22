@@ -9,14 +9,12 @@ pub trait Visitor {
     // terribly, but for now it's fine. We should use a better abstraction.
     /// The result of visiting a `Root`.
     type RootOutput;
-    /// The result of visiting a `ContractDefinition`.
-    type ContractDefinitionOutput;
+    /// The result of visiting a `Target`.
+    type TargetOutput;
     /// The result of visiting a `FunctionDefinition`.
     type FunctionDefinitionOutput;
     /// The result of visiting a `Comment`.
     type CommentOutput;
-    /// The result of visiting a `Statement`.
-    type StatementOutput;
     /// An error that might occur when visiting the HIR.
     type Error;
 
@@ -30,6 +28,15 @@ pub trait Visitor {
     /// A `Result` containing either the output of visiting the root node or an
     /// error.
     fn visit_root(&mut self, root: &hir::Root) -> Result<Self::RootOutput, Self::Error>;
+    /// Visits a target node within the HIR.
+    ///
+    /// # Arguments
+    /// * `target` - A reference to the target node in the HIR.
+    ///
+    /// # Returns
+    /// A `Result` containing either the output of visiting the target
+    /// node or an error.
+    fn visit_target(&mut self, target: &hir::Target) -> Result<Self::RootOutput, Self::Error>;
     /// Visits a function definition node within the HIR.
     ///
     /// # Arguments

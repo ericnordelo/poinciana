@@ -3,15 +3,9 @@
 //! It visits the AST in depth-first order, storing modifiers for use in later
 //! phases.
 
+use crate::utils::to_snake_case;
+use bulloak_syntax::{Action, Ast, Condition, Description, Root, Visitor};
 use indexmap::IndexMap;
-
-use crate::{
-    syntax::tree::{
-        ast::{self, Ast},
-        visitor::Visitor,
-    },
-    utils::to_snake_case,
-};
 
 /// AST visitor that discovers modifiers.
 ///
@@ -58,7 +52,7 @@ impl Visitor for ModifierDiscoverer {
     type Error = ();
     type Output = ();
 
-    fn visit_root(&mut self, root: &ast::Root) -> Result<Self::Output, Self::Error> {
+    fn visit_root(&mut self, root: &Root) -> Result<Self::Output, Self::Error> {
         for condition in &root.children {
             if let Ast::Condition(condition) = condition {
                 self.visit_condition(condition)?;
@@ -68,7 +62,7 @@ impl Visitor for ModifierDiscoverer {
         Ok(())
     }
 
-    fn visit_condition(&mut self, condition: &ast::Condition) -> Result<Self::Output, Self::Error> {
+    fn visit_condition(&mut self, condition: &Condition) -> Result<Self::Output, Self::Error> {
         self.modifiers
             .insert(condition.title.clone(), to_snake_case(&condition.title));
 
@@ -81,14 +75,14 @@ impl Visitor for ModifierDiscoverer {
         Ok(())
     }
 
-    fn visit_action(&mut self, _action: &ast::Action) -> Result<Self::Output, Self::Error> {
+    fn visit_action(&mut self, _action: &Action) -> Result<Self::Output, Self::Error> {
         // No-op.
         Ok(())
     }
 
     fn visit_description(
         &mut self,
-        _description: &ast::Description,
+        _description: &Description,
     ) -> Result<Self::Output, Self::Error> {
         // No-op.
         Ok(())
@@ -97,18 +91,14 @@ impl Visitor for ModifierDiscoverer {
 
 #[cfg(test)]
 mod tests {
+    use bulloak_syntax::parse_one;
     use indexmap::IndexMap;
     use pretty_assertions::assert_eq;
 
-    use crate::{
-        error::Result,
-        scaffold::modifiers::ModifierDiscoverer,
-        syntax::tree::{parser::Parser, tokenizer::Tokenizer},
-    };
+    use crate::scaffold::modifiers::ModifierDiscoverer;
 
-    fn discover(file_contents: &str) -> Result<IndexMap<String, String>> {
-        let tokens = Tokenizer::new().tokenize(file_contents)?;
-        let ast = Parser::new().parse(file_contents, &tokens)?;
+    fn discover(file_contents: &str) -> anyhow::Result<IndexMap<String, String>> {
+        let ast = parse_one(file_contents)?;
         let mut discoverer = ModifierDiscoverer::new();
         discoverer.discover(&ast);
 

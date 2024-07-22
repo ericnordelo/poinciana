@@ -1,11 +1,11 @@
 //! The implementation of a high-level intermediate representation (HIR)
 //! combiner.
-use std::{collections::HashSet, mem, result};
+use std::{collections::HashSet, fmt, mem, result};
 
 use thiserror::Error;
 
-use super::{Hir, Root};
-use crate::span::Span;
+use super::{Hir, Root, Target};
+use bulloak_syntax::{utils::lower_first_letter, FrontendError, Span};
 
 type Result<T> = result::Result<T, Error>;
 
@@ -22,23 +22,26 @@ pub struct Error {
     span: Span,
 }
 
-impl Error {
+impl FrontendError<ErrorKind> for Error {
     /// Return the type of this error.
-    #[must_use]
-    pub fn kind(&self) -> &ErrorKind {
+    fn kind(&self) -> &ErrorKind {
         &self.kind
     }
 
     /// The original text string in which this error occurred.
-    #[must_use]
-    pub fn text(&self) -> &str {
+    fn text(&self) -> &str {
         &self.text
     }
 
     /// Return the span at which this error occurred.
-    #[must_use]
-    pub fn span(&self) -> &Span {
+    fn span(&self) -> &Span {
         &self.span
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.format_error(f)
     }
 }
 
@@ -48,7 +51,26 @@ type Index = usize;
 /// The type of an error that occurred while combining HIRs.
 #[derive(Error, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum ErrorKind {}
+pub enum ErrorKind {
+    /// This happens when the module name in the identifier of one HIR does
+    /// not match the module name in the identifier of another HIR.
+    #[error("module name mismatch: expected '{expected}', found '{actual}'")]
+    ModuleNameMismatch {
+        /// The name found in the current tree being analyzed.
+        actual: Identifier,
+        /// The name expected to be found during analysis.
+        expected: Identifier,
+    },
+
+    /// No module name was found in one of the tree roots.
+    #[error("module name missing at tree root #{0}")]
+    ModuleNameMissing(Index),
+
+    /// A `::` was missing in
+    /// one of the tree roots.
+    #[error("separator missing at tree root #{0}. Expected to find `::` between the module name and the function name when multiple roots exist")]
+    SeparatorMissing(Index),
+}
 
 /// A high-level intermediate representation (HIR) combiner.
 ///
@@ -70,9 +92,8 @@ impl Combiner {
     }
 
     /// Combines the translated HIRs into a single HIR. HIRs are merged by
-    /// iterating over each HIR and merging their children into the contract
-    /// definition of the first HIR, while verifying the contract identifiers
-    /// match and filtering out duplicate modifiers.
+    /// iterating over each HIR and merging their children into the root
+    /// definition of the first HIR, while filtering out duplicate modifiers.
     pub fn combine(self, text: &str, hirs: Vec<Hir>) -> Result<Hir> {
         CombinerI::new(text).combine(hirs)
     }
@@ -105,28 +126,103 @@ impl<'t> CombinerI<'t> {
             return Ok(hirs[0].clone());
         }
 
-        let combined_root = &mut Root::default();
+        let target = &mut Target::default();
         let mut unique_modifiers = HashSet::new();
 
-        for (_, hir) in hirs.into_iter().enumerate() {
+        for (idx, hir) in hirs.into_iter().enumerate() {
             let Hir::Root(r) = hir else {
                 unreachable!();
             };
 
-            let children = update_children(r.children, &mut unique_modifiers);
-            combined_root.children.extend(children);
+            for child in r.children {
+                let Hir::Target(module) = child else {
+                    // For now we ignore everything that isn't a target.
+                    continue;
+                };
+
+                // ModuleName::function_name -> (ModuleName, function_name)
+                //
+                // Errors if `::` isn't present.
+                let (module_name, function_name) = module
+                    .identifier
+                    .split_once("::")
+                    .ok_or(self.error(Span::default(), ErrorKind::SeparatorMissing(idx + 1)))?;
+
+                if module_name.trim().is_empty() {
+                    return Err(self.error(Span::default(), ErrorKind::ModuleNameMissing(idx + 1)));
+                }
+
+                // If the accumulated identifier is empty, we're on the first
+                // module.
+                if target.identifier.is_empty() {
+                    // Add modifiers to the list of added modifiers and prefix
+                    // test names.
+                    let children = module
+                        .children
+                        .into_iter()
+                        .map(|c| prefix_test(c, function_name))
+                        .filter_map(|c| collect_modifier(c, &mut unique_modifiers))
+                        .collect();
+                    let first_module = Target {
+                        identifier: module_name.to_owned(),
+                        children,
+                    };
+                    *target = first_module;
+                    continue;
+                }
+
+                // If the current module name doesn't match, we error.
+                if module_name != target.identifier {
+                    return Err(self.error(
+                        Span::default(),
+                        ErrorKind::ModuleNameMismatch {
+                            actual: module_name.to_owned(),
+                            expected: target.identifier.clone(),
+                        },
+                    ));
+                }
+
+                let children =
+                    update_children(module.children, function_name, &mut unique_modifiers);
+                target.children.extend(children);
+            }
         }
 
-        Ok(Hir::Root(mem::take(combined_root)))
+        let combined_root = Hir::Root(Root {
+            children: vec![Hir::Target(mem::take(target))],
+        });
+        Ok(combined_root)
     }
 }
 
-/// Filter modifiers.
-fn update_children(children: Vec<Hir>, unique_modifiers: &mut HashSet<String>) -> Vec<Hir> {
+/// Prefix function names and filter modifiers.
+fn update_children(
+    children: Vec<Hir>,
+    function_identifier: &str,
+    unique_modifiers: &mut HashSet<String>,
+) -> Vec<Hir> {
     children
         .into_iter()
+        .map(|c| prefix_test(c, function_identifier))
         .filter_map(|c| collect_modifier(c, unique_modifiers))
         .collect()
+}
+
+fn prefix_test(child: Hir, prefix: &str) -> Hir {
+    let Hir::FunctionDefinition(mut test_or_modifier) = child else {
+        return child;
+    };
+    if test_or_modifier.is_test() {
+        test_or_modifier.identifier = prefix_test_with(&test_or_modifier.identifier, prefix);
+    }
+    Hir::FunctionDefinition(test_or_modifier)
+}
+
+/// Prefix the suffix of a test name.
+fn prefix_test_with(test_name: &str, prefix: &str) -> String {
+    let fn_name = lower_first_letter(prefix);
+    let test_suffix = test_name.trim_start_matches("test_");
+    format!("test_{fn_name}_{test_suffix}")
 }
 
 fn collect_modifier(child: Hir, unique_modifiers: &mut HashSet<String>) -> Option<Hir> {
@@ -135,7 +231,7 @@ fn collect_modifier(child: Hir, unique_modifiers: &mut HashSet<String>) -> Optio
     };
 
     // If child is of type `FunctionDefinition` with the same identifier
-    // as a child of another `ContractDefinition` of ty `Modifier`, then
+    // as a child of another `Target` of ty `Modifier`, then
     // they are duplicates.
     if unique_modifiers.contains(&test_or_modifier.identifier) {
         return None;
@@ -148,19 +244,17 @@ fn collect_modifier(child: Hir, unique_modifiers: &mut HashSet<String>) -> Optio
 #[cfg(test)]
 mod tests {
     use anyhow::{Error, Result};
+    use bulloak_syntax::{parse_one, Position, Span};
     use pretty_assertions::assert_eq;
 
     use crate::{
         config::Config,
         hir::{self, Hir},
         scaffold::modifiers,
-        span::{Position, Span},
-        syntax::tree::{parser::Parser, tokenizer::Tokenizer},
     };
 
     fn translate(text: &str) -> Result<Hir> {
-        let tokens = Tokenizer::new().tokenize(&text)?;
-        let ast = Parser::new().parse(&text, &tokens)?;
+        let ast = parse_one(&text)?;
         let mut discoverer = modifiers::ModifierDiscoverer::new();
         let modifiers = discoverer.discover(&ast);
 
@@ -174,6 +268,13 @@ mod tests {
 
     fn root(children: Vec<Hir>) -> Hir {
         Hir::Root(hir::Root { children })
+    }
+
+    fn target(identifier: &str, children: Vec<Hir>) -> Hir {
+        Hir::Target(hir::Target {
+            identifier: identifier.to_owned(),
+            children,
+        })
     }
 
     fn function(
@@ -199,42 +300,55 @@ mod tests {
     #[test]
     fn errors_when_root_contract_identifier_is_missing() {
         let trees = vec![
-            "::orphanedFunction\n└── when something bad happens\n   └── it should revert",
+            "::orphaned_function\n└── when something bad happens\n   └── it should revert",
             "Contract::function\n└── when something bad happens\n   └── it should revert",
         ];
         let hirs = trees.iter().map(|tree| translate(tree).unwrap()).collect();
         let text = trees.join("\n\n");
         let result = combine(&text, hirs);
 
-        assert!(result.is_err());
+        let expected = r"•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+bulloak error: module name missing at tree root #1";
+        assert!(result.is_err_and(|e| { e.to_string() == expected }));
     }
 
     #[test]
-    fn errors_when_contract_names_mismatch() {
+    fn errors_when_root_contract_identifier_is_missing_second() {
         let trees = vec![
             "Contract::function\n└── when something bad happens\n   └── it should revert",
-            "::orphanedFunction\n└── when something bad happens\n   └── it should revert",
+            "::orphaned_function\n└── when something bad happens\n   └── it should revert",
         ];
         let hirs = trees.iter().map(|tree| translate(tree).unwrap()).collect();
+        let text = trees.join("\n\n");
+        let result = combine(&text, hirs);
 
         let expected = r"•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
-bulloak error: contract name missing at tree root #2";
-
-        let text = trees.join("\n\n");
-        match combine(&text, hirs) {
-            Err(e) => assert_eq!(e.to_string(), expected),
-            _ => unreachable!("expected an error"),
-        }
+bulloak error: module name missing at tree root #2";
+        assert!(result.is_err_and(|e| { e.to_string() == expected }));
     }
 
     #[test]
-    fn skips_non_function_children() {
+    fn errors_when_module_names_mismatch() {
+        let trees = vec![
+            "Contract::function\n└── when something bad happens\n   └── it should revert",
+            "Different::orphaned_function\n└── when something bad happens\n   └── it should revert",
+        ];
+        let hirs = trees.iter().map(|tree| translate(tree).unwrap()).collect();
+        let text = trees.join("\n\n");
+        let result = combine(&text, hirs);
+
+        let expected = r"•••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+bulloak error: module name mismatch: expected 'Contract', found 'Different'";
+        assert!(result.is_err_and(|e| { e.to_string() == expected }));
+    }
+
+    #[test]
+    fn skips_non_target_children() {
         let trees = vec![
             "Contract::function1\n└── when something bad happens\n    └── it should revert",
             "Contract::function2\n└── when something shit happens\n    └── it should revert",
         ];
         let mut hirs: Vec<_> = trees.iter().map(|tree| translate(tree).unwrap()).collect();
-
         // Append a comment HIR to the hirs.
         hirs.push(root(vec![comment("this is a random comment".to_owned())]));
 
@@ -246,22 +360,25 @@ bulloak error: contract name missing at tree root #2";
 
         assert_eq!(
             children,
-            vec![
-                function(
-                    "test_Function1RevertWhen_SomethingBadHappens".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(20, 2, 1), Position::new(86, 3, 24)),
-                    None,
-                    Some(vec![comment("it should revert".to_owned()),])
-                ),
-                function(
-                    "test_Function2RevertWhen_SomethingShitHappens".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(20, 2, 1), Position::new(87, 3, 24)),
-                    None,
-                    Some(vec![comment("it should revert".to_owned()),])
-                ),
-            ]
+            vec![target(
+                "Contract",
+                vec![
+                    function(
+                        "test_function1_panic_when_something_bad_happens".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(20, 2, 1), Position::new(86, 3, 24)),
+                        None,
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                    function(
+                        "test_function2_panic_when_something_shit_happens".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(20, 2, 1), Position::new(87, 3, 24)),
+                        None,
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                ]
+            )]
         );
     }
 

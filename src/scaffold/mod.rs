@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::config::Config;
-use crate::{hir::translate_and_combine_trees, syntax::cairo::get_database};
+use crate::{hir::translate, syntax::get_database};
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_formatter::format_string;
 use clap::Parser;
@@ -145,8 +145,8 @@ impl Scaffold {
 ///
 /// This function takes the content of a `.tree` file and a configuration,
 /// translates it to an intermediate representation, and then to Cairo.
-pub fn scaffold(text: &str, cfg: &Config) -> crate::error::Result<String> {
-    let hir = translate_and_combine_trees(text, cfg)?;
+pub fn scaffold(text: &str, cfg: &Config) -> anyhow::Result<String> {
+    let hir = translate(text, cfg)?;
     let cairo_code = emitter::Emitter::new(cfg).emit(&hir);
     Ok(cairo_code)
 }

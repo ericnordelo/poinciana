@@ -25,6 +25,7 @@ path = "src/main.rs"
 name = "poinciana"
 
 [dependencies]
+bulloak-syntax = { git = "https://github.com/alexfertel/bulloak" }
 anyhow = "1.0.75"
 serde = { version = "1.0.204", features = ["derive"]}
 clap = { version = "4.3.19", features = ["derive"] }
@@ -33,7 +34,6 @@ owo-colors = "4.0.0"
 cairo-lang-formatter = "2.7.0-dev.1"
 cairo-lang-compiler = "2.7.0-dev.1"
 cairo-lang-starknet = "2.7.0-dev.1"
-cairo-lang-syntax = "2.7.0-dev.1"
 thiserror = "1.0.61"
 unicode-xid = "0.2.4"
 indexmap = "2.2.6"

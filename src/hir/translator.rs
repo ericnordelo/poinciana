@@ -1,13 +1,14 @@
 //! The implementation of a translator between a poinciana tree AST and a
 //! high-level intermediate representation (HIR) -- AST -> HIR.
-use indexmap::IndexMap;
-
 use crate::{
     config::Config,
     hir::{self, Hir},
-    syntax::tree::{ast, visitor::Visitor},
-    utils::{lower_first_letter, sanitize},
 };
+use bulloak_syntax::{
+    utils::{lower_first_letter, sanitize},
+    Action, Ast, Condition, Description, Root, Visitor,
+};
+use indexmap::IndexMap;
 
 /// A translator between a poinciana tree abstract syntax tree (AST)
 /// and a high-level intermediate representation (HIR) -- AST -> HIR.
@@ -28,12 +29,7 @@ impl Translator {
     ///
     /// This function is the entry point of the translator.
     #[must_use]
-    pub fn translate(
-        &self,
-        ast: &ast::Ast,
-        modifiers: &IndexMap<String, String>,
-        cfg: &Config,
-    ) -> Hir {
+    pub fn translate(&self, ast: &Ast, modifiers: &IndexMap<String, String>, cfg: &Config) -> Hir {
         TranslatorI::new(modifiers, cfg).translate(ast)
     }
 }
@@ -68,9 +64,9 @@ impl<'a> TranslatorI<'a> {
     }
 
     /// Concrete implementation of the translation from AST to HIR.
-    fn translate(&mut self, ast: &ast::Ast) -> Hir {
+    fn translate(&mut self, ast: &Ast) -> Hir {
         let mut hirs = match ast {
-            ast::Ast::Root(ref root) => self.visit_root(root).unwrap(),
+            Ast::Root(ref root) => self.visit_root(root).unwrap(),
             _ => unreachable!(),
         };
 
@@ -84,22 +80,19 @@ impl<'a> Visitor for TranslatorI<'a> {
     type Error = ();
     type Output = Vec<Hir>;
 
-    fn visit_root(
-        &mut self,
-        root: &crate::syntax::tree::ast::Root,
-    ) -> Result<Self::Output, Self::Error> {
-        let mut root_children = Vec::new();
+    fn visit_root(&mut self, root: &Root) -> Result<Self::Output, Self::Error> {
+        let mut target_children = Vec::new();
 
         for ast in &root.children {
             match ast {
                 // Root or ActionDescription nodes cannot be children of a root
                 // node. This must be handled in a previous
                 // pass.
-                ast::Ast::Root(_) | ast::Ast::ActionDescription(_) => {
+                Ast::Root(_) | Ast::ActionDescription(_) => {
                     unreachable!()
                 }
                 // Found a top-level action. This corresponds to a function.
-                ast::Ast::Action(action) => {
+                Ast::Action(action) => {
                     let words = action.title.split_whitespace();
                     let words = words.skip(1); // Removes "it" from the test name.
 
@@ -129,29 +122,31 @@ impl<'a> Visitor for TranslatorI<'a> {
                         modifiers: None,
                         children: Some(hirs),
                     });
-                    root_children.push(hir);
+                    target_children.push(hir);
                 }
-                ast::Ast::Condition(condition) => {
-                    root_children.append(&mut self.visit_condition(condition)?);
+                Ast::Condition(condition) => {
+                    target_children.append(&mut self.visit_condition(condition)?);
                 }
             }
         }
+
+        let root_children = vec![Hir::Target(hir::Target {
+            identifier: root.contract_name.clone(),
+            children: target_children,
+        })];
 
         Ok(vec![Hir::Root(hir::Root {
             children: root_children,
         })])
     }
 
-    fn visit_condition(
-        &mut self,
-        condition: &crate::syntax::tree::ast::Condition,
-    ) -> Result<Self::Output, Self::Error> {
+    fn visit_condition(&mut self, condition: &Condition) -> Result<Self::Output, Self::Error> {
         let mut children = Vec::new();
 
         let action_count = condition
             .children
             .iter()
-            .filter(|child| ast::Ast::is_action(child))
+            .filter(|child| Ast::is_action(child))
             .count();
         // If this condition only has actions as children, then we don't
         // generate a modifier for it, since it would only be used in
@@ -175,7 +170,7 @@ impl<'a> Visitor for TranslatorI<'a> {
         // in the same order that they appear in the source .tree text.
         let mut actions = Vec::new();
         for action in &condition.children {
-            if let ast::Ast::Action(action) = action {
+            if let Ast::Action(action) = action {
                 actions.append(&mut self.visit_action(action)?);
             }
         }
@@ -187,7 +182,7 @@ impl<'a> Visitor for TranslatorI<'a> {
             let is_panic = actions.first().is_some_and(|action| {
                 if let hir::Hir::Comment(comment) = action {
                     let sanitized_lexeme = sanitize(&comment.lexeme.trim().to_lowercase());
-                    sanitized_lexeme == "it should panic"
+                    sanitized_lexeme == "it should revert"
                 } else {
                     false
                 }
@@ -206,18 +201,22 @@ impl<'a> Visitor for TranslatorI<'a> {
                 let test_name = words.fold(
                     String::with_capacity(condition.title.len() - keyword.len()),
                     |mut acc, w| {
-                        acc.reserve(w.len() + 1);
-                        acc.push_str(&format!("_{}", w));
+                        if !acc.is_empty() {
+                            acc.reserve(w.len() + 1);
+                            acc.push_str(&format!("_{}", w));
+                        } else {
+                            acc.reserve(w.len());
+                            acc.push_str(&w);}
                         acc
                     },
                 );
 
                 // The structure for a function name when it is a panic is:
                 //
-                // test_[KEYWORD]_name_panics
+                // test_panic_[KEYWORD]_name
                 //
                 // where `KEYWORD` is the starting word of the condition.
-                format!("test_{keyword}_{test_name}_panics")
+                format!("test_panic_{keyword}_{test_name}")
             } else {
                 // Map an iterator over the words of a condition to the test
                 // name.
@@ -250,7 +249,7 @@ impl<'a> Visitor for TranslatorI<'a> {
 
         // Then we recursively visit all child conditions.
         for condition in &condition.children {
-            if let ast::Ast::Condition(condition) = condition {
+            if let Ast::Condition(condition) = condition {
                 children.append(&mut self.visit_condition(condition)?);
             }
         }
@@ -262,13 +261,10 @@ impl<'a> Visitor for TranslatorI<'a> {
         Ok(children)
     }
 
-    fn visit_action(
-        &mut self,
-        action: &crate::syntax::tree::ast::Action,
-    ) -> Result<Self::Output, Self::Error> {
+    fn visit_action(&mut self, action: &Action) -> Result<Self::Output, Self::Error> {
         let mut descriptions = vec![];
         for description in &action.children {
-            if let ast::Ast::ActionDescription(description) = description {
+            if let Ast::ActionDescription(description) = description {
                 descriptions.append(&mut self.visit_description(description)?);
             }
         }
@@ -282,7 +278,7 @@ impl<'a> Visitor for TranslatorI<'a> {
 
     fn visit_description(
         &mut self,
-        description: &crate::syntax::tree::ast::Description,
+        description: &Description,
     ) -> Result<Self::Output, Self::Error> {
         Ok(vec![hir::Hir::Comment(hir::Comment {
             lexeme: description.text.clone(),
@@ -293,19 +289,17 @@ impl<'a> Visitor for TranslatorI<'a> {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+    use bulloak_syntax::{parse_one, Position, Span};
     use pretty_assertions::assert_eq;
 
     use crate::{
         config::Config,
         hir::{self, Hir},
         scaffold::modifiers,
-        span::{Position, Span},
-        syntax::tree::{parser::Parser, tokenizer::Tokenizer},
     };
 
     fn translate(text: &str) -> Result<hir::Hir> {
-        let tokens = Tokenizer::new().tokenize(&text)?;
-        let ast = Parser::new().parse(&text, &tokens)?;
+        let ast = parse_one(&text)?;
         let mut discoverer = modifiers::ModifierDiscoverer::new();
         let modifiers = discoverer.discover(&ast);
 

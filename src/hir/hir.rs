@@ -1,6 +1,6 @@
 //! Defines a high-level intermediate representation (HIR).
 
-use crate::span::Span;
+use bulloak_syntax::Span;
 
 /// A high-level intermediate representation (HIR) that describes
 /// the semantic structure of a Cairo contract as emitted by `poinciana`.
@@ -16,7 +16,10 @@ pub enum Hir {
     /// Note that this means that there can only be a single
     /// root node in any HIR.
     Root(Root),
-    /// A function definition.
+    /// The contract or component, with the function
+    /// to be tested.
+    Target(Target),
+    /// A test function definition.
     FunctionDefinition(FunctionDefinition),
     /// A comment.
     Comment(Comment),
@@ -35,6 +38,18 @@ type Identifier = String;
 /// There can only be one root node in any HIR.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Root {
+    /// The children HIR nodes of this node.
+    pub children: Vec<Hir>,
+}
+
+/// The target node.
+///
+/// Represents the function to be tested scoped by
+/// either the parent contract or component.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Target {
+    /// The target identifier.
+    pub identifier: Identifier,
     /// The children HIR nodes of this node.
     pub children: Vec<Hir>,
 }
