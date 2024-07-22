@@ -401,29 +401,32 @@ bulloak error: module name mismatch: expected 'Contract', found 'Different'";
 
         assert_eq!(
             children,
-            vec![
-                function(
-                    "whenSomethingBadHappens".to_owned(),
-                    hir::FunctionTy::Modifier,
-                    Span::new(Position::new(20, 2, 1), Position::new(133, 4, 28)),
-                    None,
-                    None
-                ),
-                function(
-                    "test_Function1RevertGiven_SomethingElseHappens".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(61, 3, 5), Position::new(133, 4, 28)),
-                    Some(vec!["whenSomethingBadHappens".to_owned()]),
-                    Some(vec![comment("it should revert".to_owned()),])
-                ),
-                function(
-                    "test_Function2RevertGiven_TheCallerIs0x1337".to_owned(),
-                    hir::FunctionTy::Test,
-                    Span::new(Position::new(61, 3, 5), Position::new(131, 4, 28)),
-                    Some(vec!["whenSomethingBadHappens".to_owned()]),
-                    Some(vec![comment("it should revert".to_owned()),])
-                ),
-            ]
+            vec![target(
+                "Contract",
+                vec![
+                    function(
+                        "when_something_bad_happens".to_owned(),
+                        hir::FunctionTy::Modifier,
+                        Span::new(Position::new(20, 2, 1), Position::new(133, 4, 28)),
+                        None,
+                        None
+                    ),
+                    function(
+                        "test_function1_panic_given_something_else_happens".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(61, 3, 5), Position::new(133, 4, 28)),
+                        Some(vec!["when_something_bad_happens".to_owned()]),
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                    function(
+                        "test_function2_panic_given_the_caller_is_0x1337".to_owned(),
+                        hir::FunctionTy::Test,
+                        Span::new(Position::new(61, 3, 5), Position::new(131, 4, 28)),
+                        Some(vec!["when_something_bad_happens".to_owned()]),
+                        Some(vec![comment("it should revert".to_owned()),])
+                    ),
+                ]
+            )]
         );
     }
 }

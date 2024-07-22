@@ -177,7 +177,7 @@ impl<'a> Visitor for TranslatorI<'a> {
 
         // Add this condition's function definition if it has children actions.
         if !actions.is_empty() {
-            // If the only action is `it should panic`, we slightly change the
+            // If the only action is `it should revert`, we slightly change the
             // function name to reflect this.
             let is_panic = actions.first().is_some_and(|action| {
                 if let hir::Hir::Comment(comment) = action {
@@ -206,7 +206,8 @@ impl<'a> Visitor for TranslatorI<'a> {
                             acc.push_str(&format!("_{}", w));
                         } else {
                             acc.reserve(w.len());
-                            acc.push_str(&w);}
+                            acc.push_str(&w);
+                        }
                         acc
                     },
                 );
