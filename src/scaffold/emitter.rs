@@ -688,7 +688,7 @@ fn given_the_asset_is_a_contract() {
 }
 
 #[test]
-fn test_when_the_asset_misses_the_ERC_20_return_value() {
+fn test_when_the_asset_misses_the_erc_20_return_value() {
   when_not_stuff_called();
   when_the_deposit_amount_is_not_zero();
   given_the_asset_is_a_contract();
@@ -701,7 +701,7 @@ fn test_when_the_asset_misses_the_ERC_20_return_value() {
 }
 
 #[test]
-fn test_when_the_asset_does_not_miss_the_ERC_20_return_value() {
+fn test_when_the_asset_does_not_miss_the_erc_20_return_value() {
   when_not_stuff_called();
   when_the_deposit_amount_is_not_zero();
   given_the_asset_is_a_contract();

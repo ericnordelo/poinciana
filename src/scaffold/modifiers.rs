@@ -111,7 +111,7 @@ mod tests {
             discover("file.sol\n└── when something bad happens\n   └── it should revert").unwrap(),
             IndexMap::from([(
                 "when something bad happens".to_owned(),
-                "whenSomethingBadHappens".to_owned()
+                "when_something_bad_happens".to_owned()
             )])
         );
     }
@@ -128,10 +128,10 @@ mod tests {
             )
             .unwrap(),
             IndexMap::from([
-                ("when stuff called".to_owned(), "whenStuffCalled".to_owned()),
+                ("when stuff called".to_owned(), "when_stuff_called".to_owned()),
                 (
                     "when not stuff called".to_owned(),
-                    "whenNotStuffCalled".to_owned()
+                    "when_not_stuff_called".to_owned()
                 )
             ])
         );
@@ -163,38 +163,38 @@ mod tests {
             )
             .unwrap(),
             IndexMap::from([
-                ("when stuff called".to_owned(), "whenStuffCalled".to_owned()),
+                ("when stuff called".to_owned(), "when_stuff_called".to_owned()),
                 (
                     "when not stuff called".to_owned(),
-                    "whenNotStuffCalled".to_owned()
+                    "when_not_stuff_called".to_owned()
                 ),
                 (
                     "when the deposit amount is zero".to_owned(),
-                    "whenTheDepositAmountIsZero".to_owned()
+                    "when_the_deposit_amount_is_zero".to_owned()
                 ),
                 (
                     "when the deposit amount is not zero".to_owned(),
-                    "whenTheDepositAmountIsNotZero".to_owned()
+                    "when_the_deposit_amount_is_not_zero".to_owned()
                 ),
                 (
                     "when the number count is zero".to_owned(),
-                    "whenTheNumberCountIsZero".to_owned()
+                    "when_the_number_count_is_zero".to_owned()
                 ),
                 (
                     "when the asset is not a contract".to_owned(),
-                    "whenTheAssetIsNotAContract".to_owned()
+                    "when_the_asset_is_not_a_contract".to_owned()
                 ),
                 (
                     "when the asset is a contract".to_owned(),
-                    "whenTheAssetIsAContract".to_owned()
+                    "when_the_asset_is_a_contract".to_owned()
                 ),
                 (
                     "when the asset misses the ERC_20 return value".to_owned(),
-                    "whenTheAssetMissesTheERC_20ReturnValue".to_owned()
+                    "when_the_asset_misses_the_erc_20_return_value".to_owned()
                 ),
                 (
                     "when the asset does not miss the ERC_20 return value".to_owned(),
-                    "whenTheAssetDoesNotMissTheERC_20ReturnValue".to_owned()
+                    "when_the_asset_does_not_miss_the_erc_20_return_value".to_owned()
                 ),
             ])
         );

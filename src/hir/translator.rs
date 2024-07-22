@@ -103,7 +103,7 @@ impl<'a> Visitor for TranslatorI<'a> {
                     let test_name =
                         words.fold(String::with_capacity(action.title.len()), |mut acc, w| {
                             acc.reserve(w.len() + 1);
-                            acc.push_str(&format!("_{}", w));
+                            acc.push_str(&format!("_{}", w.to_lowercase()));
                             acc
                         });
 
@@ -203,10 +203,10 @@ impl<'a> Visitor for TranslatorI<'a> {
                     |mut acc, w| {
                         if !acc.is_empty() {
                             acc.reserve(w.len() + 1);
-                            acc.push_str(&format!("_{}", w));
+                            acc.push_str(&format!("_{}", w.to_lowercase()));
                         } else {
                             acc.reserve(w.len());
-                            acc.push_str(&w);
+                            acc.push_str(&w.to_lowercase());
                         }
                         acc
                     },
@@ -225,7 +225,7 @@ impl<'a> Visitor for TranslatorI<'a> {
                 // Example: [when, something, happens] -> WhenSomethingHappens
                 let test_name = words.fold(keyword, |mut acc, w| {
                     acc.reserve(w.len() + 1);
-                    acc.push_str(&format!("_{}", w));
+                    acc.push_str(&format!("_{}", w.to_lowercase()));
                     acc
                 });
 
@@ -349,7 +349,7 @@ mod tests {
                 vec![function(
                     "test_panic_when_something_bad_happens".to_owned(),
                     hir::FunctionTy::Test,
-                    Span::new(Position::new(9, 2, 1), Position::new(74, 3, 23)),
+                    Span::new(Position::new(8, 2, 1), Position::new(73, 3, 23)),
                     None,
                     Some(vec![comment("it should revert".to_owned()),])
                 ),]
