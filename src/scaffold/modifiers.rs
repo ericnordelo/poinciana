@@ -3,9 +3,10 @@
 //! It visits the AST in depth-first order, storing modifiers for use in later
 //! phases.
 
-use crate::utils::to_snake_case;
 use bulloak_syntax::{Action, Ast, Condition, Description, Root, Visitor};
 use indexmap::IndexMap;
+
+use crate::utils::to_snake_case;
 
 /// AST visitor that discovers modifiers.
 ///
@@ -26,9 +27,7 @@ impl ModifierDiscoverer {
     /// Create a new discoverer.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            modifiers: IndexMap::new(),
-        }
+        Self { modifiers: IndexMap::new() }
     }
 
     /// Discover modifiers in the given AST.
@@ -62,7 +61,10 @@ impl Visitor for ModifierDiscoverer {
         Ok(())
     }
 
-    fn visit_condition(&mut self, condition: &Condition) -> Result<Self::Output, Self::Error> {
+    fn visit_condition(
+        &mut self,
+        condition: &Condition,
+    ) -> Result<Self::Output, Self::Error> {
         self.modifiers
             .insert(condition.title.clone(), to_snake_case(&condition.title));
 
@@ -75,7 +77,10 @@ impl Visitor for ModifierDiscoverer {
         Ok(())
     }
 
-    fn visit_action(&mut self, _action: &Action) -> Result<Self::Output, Self::Error> {
+    fn visit_action(
+        &mut self,
+        _action: &Action,
+    ) -> Result<Self::Output, Self::Error> {
         // No-op.
         Ok(())
     }
@@ -97,7 +102,9 @@ mod tests {
 
     use crate::scaffold::modifiers::ModifierDiscoverer;
 
-    fn discover(file_contents: &str) -> anyhow::Result<IndexMap<String, String>> {
+    fn discover(
+        file_contents: &str,
+    ) -> anyhow::Result<IndexMap<String, String>> {
         let ast = parse_one(file_contents)?;
         let mut discoverer = ModifierDiscoverer::new();
         discoverer.discover(&ast);
@@ -199,8 +206,10 @@ mod tests {
                     "when_the_asset_misses_the_erc_20_return_value".to_owned()
                 ),
                 (
-                    "when the asset does not miss the ERC_20 return value".to_owned(),
-                    "when_the_asset_does_not_miss_the_erc_20_return_value".to_owned()
+                    "when the asset does not miss the ERC_20 return value"
+                        .to_owned(),
+                    "when_the_asset_does_not_miss_the_erc_20_return_value"
+                        .to_owned()
                 ),
             ])
         );

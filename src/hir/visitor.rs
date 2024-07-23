@@ -28,7 +28,10 @@ pub trait Visitor {
     /// # Returns
     /// A `Result` containing either the output of visiting the root node or an
     /// error.
-    fn visit_root(&mut self, root: &hir::Root) -> Result<Self::RootOutput, Self::Error>;
+    fn visit_root(
+        &mut self,
+        root: &hir::Root,
+    ) -> Result<Self::RootOutput, Self::Error>;
 
     /// Visits a target node within the HIR.
     ///
@@ -38,7 +41,10 @@ pub trait Visitor {
     /// # Returns
     /// A `Result` containing either the output of visiting the target
     /// node or an error.
-    fn visit_target(&mut self, target: &hir::Target) -> Result<Self::RootOutput, Self::Error>;
+    fn visit_target(
+        &mut self,
+        target: &hir::Target,
+    ) -> Result<Self::RootOutput, Self::Error>;
 
     /// Visits a function definition node within the HIR.
     ///
@@ -63,6 +69,8 @@ pub trait Visitor {
     /// # Returns
     /// A `Result` containing either the output of visiting the comment node or
     /// an error.
-    fn visit_comment(&mut self, comment: &hir::Comment)
-        -> Result<Self::CommentOutput, Self::Error>;
+    fn visit_comment(
+        &mut self,
+        comment: &hir::Comment,
+    ) -> Result<Self::CommentOutput, Self::Error>;
 }

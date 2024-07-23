@@ -7,13 +7,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::config::Config;
-use crate::{hir::translate, syntax::get_database};
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_formatter::format_string;
 use clap::Parser;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
+
+use crate::{config::Config, hir::translate, syntax::get_database};
 
 pub mod emitter;
 pub mod modifiers;
@@ -37,7 +37,12 @@ pub struct Scaffold {
     pub write_files: bool,
     /// When `--write-files` is passed, use `--force-write` to
     /// overwrite the output files.
-    #[arg(short = 'f', long, requires = "file-handling", default_value_t = false)]
+    #[arg(
+        short = 'f',
+        long,
+        requires = "file-handling",
+        default_value_t = false
+    )]
     pub force_write: bool,
     /// Whether to emit modifiers.
     #[arg(short = 'm', long, default_value_t = false)]
@@ -84,7 +89,12 @@ impl Scaffold {
     ///
     /// This method reads the input file, scaffolds the Cairo code, formats
     /// it, and either writes it to a file or prints it to stdout.
-    fn process_file(&self, db: &RootDatabase, file: &Path, cfg: &Config) -> anyhow::Result<()> {
+    fn process_file(
+        &self,
+        db: &RootDatabase,
+        file: &Path,
+        cfg: &Config,
+    ) -> anyhow::Result<()> {
         let text = fs::read_to_string(file)?;
         let emitted = scaffold(&text, cfg)?;
         let formatted = format_string(db, emitted);

@@ -2,10 +2,10 @@
 //! combiner.
 use std::{collections::HashSet, fmt, mem, result};
 
+use bulloak_syntax::{utils::lower_first_letter, FrontendError, Span};
 use thiserror::Error;
 
 use super::{Hir, Root, Target};
-use bulloak_syntax::{utils::lower_first_letter, FrontendError, Span};
 
 type Result<T> = result::Result<T, Error>;
 
@@ -112,11 +112,7 @@ impl<'t> CombinerI<'t> {
 
     /// Create a new error with the given span and error type.
     fn error(&self, span: Span, kind: ErrorKind) -> Error {
-        Error {
-            kind,
-            text: self.text.to_owned(),
-            span,
-        }
+        Error { kind, text: self.text.to_owned(), span }
     }
 
     /// Internal implementation of `Combiner::combine`.
@@ -143,13 +139,17 @@ impl<'t> CombinerI<'t> {
                 // ModuleName::function_name -> (ModuleName, function_name)
                 //
                 // Errors if `::` isn't present.
-                let (module_name, function_name) = module
-                    .identifier
-                    .split_once("::")
-                    .ok_or(self.error(Span::default(), ErrorKind::SeparatorMissing(idx + 1)))?;
+                let (module_name, function_name) =
+                    module.identifier.split_once("::").ok_or(self.error(
+                        Span::default(),
+                        ErrorKind::SeparatorMissing(idx + 1),
+                    ))?;
 
                 if module_name.trim().is_empty() {
-                    return Err(self.error(Span::default(), ErrorKind::ModuleNameMissing(idx + 1)));
+                    return Err(self.error(
+                        Span::default(),
+                        ErrorKind::ModuleNameMissing(idx + 1),
+                    ));
                 }
 
                 // If the accumulated identifier is empty, we're on the first
@@ -161,12 +161,12 @@ impl<'t> CombinerI<'t> {
                         .children
                         .into_iter()
                         .map(|c| prefix_test(c, function_name))
-                        .filter_map(|c| collect_modifier(c, &mut unique_modifiers))
+                        .filter_map(|c| {
+                            collect_modifier(c, &mut unique_modifiers)
+                        })
                         .collect();
-                    let first_module = Target {
-                        identifier: module_name.to_owned(),
-                        children,
-                    };
+                    let first_module =
+                        Target { identifier: module_name.to_owned(), children };
                     *target = first_module;
                     continue;
                 }
@@ -182,15 +182,17 @@ impl<'t> CombinerI<'t> {
                     ));
                 }
 
-                let children =
-                    update_children(module.children, function_name, &mut unique_modifiers);
+                let children = update_children(
+                    module.children,
+                    function_name,
+                    &mut unique_modifiers,
+                );
                 target.children.extend(children);
             }
         }
 
-        let combined_root = Hir::Root(Root {
-            children: vec![Hir::Target(mem::take(target))],
-        });
+        let combined_root =
+            Hir::Root(Root { children: vec![Hir::Target(mem::take(target))] });
         Ok(combined_root)
     }
 }
@@ -213,7 +215,8 @@ fn prefix_test(child: Hir, prefix: &str) -> Hir {
         return child;
     };
     if test_or_modifier.is_test() {
-        test_or_modifier.identifier = prefix_test_with(&test_or_modifier.identifier, prefix);
+        test_or_modifier.identifier =
+            prefix_test_with(&test_or_modifier.identifier, prefix);
     }
     Hir::FunctionDefinition(test_or_modifier)
 }
@@ -225,7 +228,10 @@ fn prefix_test_with(test_name: &str, prefix: &str) -> String {
     format!("test_{fn_name}_{test_suffix}")
 }
 
-fn collect_modifier(child: Hir, unique_modifiers: &mut HashSet<String>) -> Option<Hir> {
+fn collect_modifier(
+    child: Hir,
+    unique_modifiers: &mut HashSet<String>,
+) -> Option<Hir> {
     let Hir::FunctionDefinition(test_or_modifier) = child else {
         return Some(child);
     };
@@ -271,10 +277,7 @@ mod tests {
     }
 
     fn target(identifier: &str, children: Vec<Hir>) -> Hir {
-        Hir::Target(hir::Target {
-            identifier: identifier.to_owned(),
-            children,
-        })
+        Hir::Target(hir::Target { identifier: identifier.to_owned(), children })
     }
 
     fn function(
@@ -348,7 +351,8 @@ bulloak error: module name mismatch: expected 'Contract', found 'Different'";
             "Contract::function1\n└── when something bad happens\n    └── it should revert",
             "Contract::function2\n└── when something shit happens\n    └── it should revert",
         ];
-        let mut hirs: Vec<_> = trees.iter().map(|tree| translate(tree).unwrap()).collect();
+        let mut hirs: Vec<_> =
+            trees.iter().map(|tree| translate(tree).unwrap()).collect();
         // Append a comment HIR to the hirs.
         hirs.push(root(vec![comment("this is a random comment".to_owned())]));
 
@@ -364,16 +368,24 @@ bulloak error: module name mismatch: expected 'Contract', found 'Different'";
                 "Contract",
                 vec![
                     function(
-                        "test_function1_panic_when_something_bad_happens".to_owned(),
+                        "test_function1_panic_when_something_bad_happens"
+                            .to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(20, 2, 1), Position::new(86, 3, 24)),
+                        Span::new(
+                            Position::new(20, 2, 1),
+                            Position::new(86, 3, 24)
+                        ),
                         None,
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
                     function(
-                        "test_function2_panic_when_something_shit_happens".to_owned(),
+                        "test_function2_panic_when_something_shit_happens"
+                            .to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(20, 2, 1), Position::new(87, 3, 24)),
+                        Span::new(
+                            Position::new(20, 2, 1),
+                            Position::new(87, 3, 24)
+                        ),
                         None,
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
@@ -388,7 +400,8 @@ bulloak error: module name mismatch: expected 'Contract', found 'Different'";
             "Contract::function1\n└── when something bad happens\n    └── given something else happens\n        └── it should revert",
             "Contract::function2\n└── when something bad happens\n    └── given the caller is 0x1337\n        └── it should revert",
         ];
-        let mut hirs: Vec<_> = trees.iter().map(|tree| translate(tree).unwrap()).collect();
+        let mut hirs: Vec<_> =
+            trees.iter().map(|tree| translate(tree).unwrap()).collect();
 
         // Append a comment HIR to the hirs.
         hirs.push(root(vec![comment("this is a random comment".to_owned())]));
@@ -407,21 +420,32 @@ bulloak error: module name mismatch: expected 'Contract', found 'Different'";
                     function(
                         "when_something_bad_happens".to_owned(),
                         hir::FunctionTy::Modifier,
-                        Span::new(Position::new(20, 2, 1), Position::new(133, 4, 28)),
+                        Span::new(
+                            Position::new(20, 2, 1),
+                            Position::new(133, 4, 28)
+                        ),
                         None,
                         None
                     ),
                     function(
-                        "test_function1_panic_given_something_else_happens".to_owned(),
+                        "test_function1_panic_given_something_else_happens"
+                            .to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(61, 3, 5), Position::new(133, 4, 28)),
+                        Span::new(
+                            Position::new(61, 3, 5),
+                            Position::new(133, 4, 28)
+                        ),
                         Some(vec!["when_something_bad_happens".to_owned()]),
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
                     function(
-                        "test_function2_panic_given_the_caller_is_0x1337".to_owned(),
+                        "test_function2_panic_given_the_caller_is_0x1337"
+                            .to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(61, 3, 5), Position::new(131, 4, 28)),
+                        Span::new(
+                            Position::new(61, 3, 5),
+                            Position::new(131, 4, 28)
+                        ),
                         Some(vec!["when_something_bad_happens".to_owned()]),
                         Some(vec![comment("it should revert".to_owned()),])
                     ),

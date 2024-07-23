@@ -7,10 +7,10 @@ pub mod hir;
 pub mod translator;
 pub mod visitor;
 
+use bulloak_syntax::Ast;
 pub use hir::*;
 
 use crate::{config::Config, scaffold::modifiers::ModifierDiscoverer};
-use bulloak_syntax::Ast;
 
 /// Translates the contents of a `.tree` file into a HIR.
 ///
@@ -29,10 +29,7 @@ pub fn translate(text: &str, cfg: &Config) -> anyhow::Result<Hir> {
         return Ok(translate_one(&asts[0], cfg));
     }
 
-    let hirs = asts
-        .into_iter()
-        .map(|ast| translate_one(&ast, cfg))
-        .collect();
+    let hirs = asts.into_iter().map(|ast| translate_one(&ast, cfg)).collect();
     Ok(combiner::Combiner::new().combine(text, hirs)?)
 }
 

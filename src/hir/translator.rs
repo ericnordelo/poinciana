@@ -1,14 +1,15 @@
 //! The implementation of a translator between a poinciana tree AST and a
 //! high-level intermediate representation (HIR) -- AST -> HIR.
-use crate::{
-    config::Config,
-    hir::{self, Hir},
-};
 use bulloak_syntax::{
     utils::{lower_first_letter, sanitize},
     Action, Ast, Condition, Description, Root, Visitor,
 };
 use indexmap::IndexMap;
+
+use crate::{
+    config::Config,
+    hir::{self, Hir},
+};
 
 /// A translator between a poinciana tree abstract syntax tree (AST)
 /// and a high-level intermediate representation (HIR) -- AST -> HIR.
@@ -29,7 +30,12 @@ impl Translator {
     ///
     /// This function is the entry point of the translator.
     #[must_use]
-    pub fn translate(&self, ast: &Ast, modifiers: &IndexMap<String, String>, cfg: &Config) -> Hir {
+    pub fn translate(
+        &self,
+        ast: &Ast,
+        modifiers: &IndexMap<String, String>,
+        cfg: &Config,
+    ) -> Hir {
         TranslatorI::new(modifiers, cfg).translate(ast)
     }
 }
@@ -57,10 +63,7 @@ struct TranslatorI<'a> {
 impl<'a> TranslatorI<'a> {
     /// Creates a new internal translator.
     fn new(modifiers: &'a IndexMap<String, String>, _cfg: &Config) -> Self {
-        Self {
-            modifier_stack: Vec::new(),
-            modifiers,
-        }
+        Self { modifier_stack: Vec::new(), modifiers }
     }
 
     /// Concrete implementation of the translation from AST to HIR.
@@ -100,12 +103,14 @@ impl<'a> Visitor for TranslatorI<'a> {
                     // name.
                     //
                     // Example: [do, stuff] -> _do_stuff
-                    let test_name =
-                        words.fold(String::with_capacity(action.title.len()), |mut acc, w| {
+                    let test_name = words.fold(
+                        String::with_capacity(action.title.len()),
+                        |mut acc, w| {
                             acc.reserve(w.len() + 1);
                             acc.push_str(&format!("_{}", w.to_lowercase()));
                             acc
-                        });
+                        },
+                    );
 
                     // We need to sanitize here and not in a previous compiler
                     // phase because we want to emit the action as is in a
@@ -115,17 +120,19 @@ impl<'a> Visitor for TranslatorI<'a> {
 
                     let hirs = self.visit_action(action)?;
 
-                    let hir = Hir::FunctionDefinition(hir::FunctionDefinition {
-                        identifier: test_name,
-                        ty: hir::FunctionTy::Test,
-                        span: action.span,
-                        modifiers: None,
-                        children: Some(hirs),
-                    });
+                    let hir =
+                        Hir::FunctionDefinition(hir::FunctionDefinition {
+                            identifier: test_name,
+                            ty: hir::FunctionTy::Test,
+                            span: action.span,
+                            modifiers: None,
+                            children: Some(hirs),
+                        });
                     target_children.push(hir);
                 }
                 Ast::Condition(condition) => {
-                    target_children.append(&mut self.visit_condition(condition)?);
+                    target_children
+                        .append(&mut self.visit_condition(condition)?);
                 }
             }
         }
@@ -135,12 +142,13 @@ impl<'a> Visitor for TranslatorI<'a> {
             children: target_children,
         })];
 
-        Ok(vec![Hir::Root(hir::Root {
-            children: root_children,
-        })])
+        Ok(vec![Hir::Root(hir::Root { children: root_children })])
     }
 
-    fn visit_condition(&mut self, condition: &Condition) -> Result<Self::Output, Self::Error> {
+    fn visit_condition(
+        &mut self,
+        condition: &Condition,
+    ) -> Result<Self::Output, Self::Error> {
         let mut children = Vec::new();
 
         let action_count = condition
@@ -181,7 +189,8 @@ impl<'a> Visitor for TranslatorI<'a> {
             // function name to reflect this.
             let is_panic = actions.first().is_some_and(|action| {
                 if let hir::Hir::Comment(comment) = action {
-                    let sanitized_lexeme = sanitize(&comment.lexeme.trim().to_lowercase());
+                    let sanitized_lexeme =
+                        sanitize(&comment.lexeme.trim().to_lowercase());
                     sanitized_lexeme == "it should revert"
                 } else {
                     false
@@ -197,9 +206,12 @@ impl<'a> Visitor for TranslatorI<'a> {
                 // Map an iterator over the words of a condition to the test
                 // name.
                 //
-                // Example: [when, something, happens] -> _when_something_happens
+                // Example: [when, something, happens] ->
+                // _when_something_happens
                 let test_name = words.fold(
-                    String::with_capacity(condition.title.len() - keyword.len()),
+                    String::with_capacity(
+                        condition.title.len() - keyword.len(),
+                    ),
                     |mut acc, w| {
                         if !acc.is_empty() {
                             acc.reserve(w.len() + 1);
@@ -235,7 +247,9 @@ impl<'a> Visitor for TranslatorI<'a> {
             let modifiers = if self.modifier_stack.is_empty() {
                 None
             } else {
-                Some(self.modifier_stack.iter().map(|&m| m.to_owned()).collect())
+                Some(
+                    self.modifier_stack.iter().map(|&m| m.to_owned()).collect(),
+                )
             };
 
             let hir = Hir::FunctionDefinition(hir::FunctionDefinition {
@@ -262,7 +276,10 @@ impl<'a> Visitor for TranslatorI<'a> {
         Ok(children)
     }
 
-    fn visit_action(&mut self, action: &Action) -> Result<Self::Output, Self::Error> {
+    fn visit_action(
+        &mut self,
+        action: &Action,
+    ) -> Result<Self::Output, Self::Error> {
         let mut descriptions = vec![];
         for description in &action.children {
             if let Ast::ActionDescription(description) = description {
@@ -313,10 +330,7 @@ mod tests {
     }
 
     fn target(identifier: &str, children: Vec<Hir>) -> Hir {
-        Hir::Target(hir::Target {
-            identifier: identifier.to_owned(),
-            children,
-        })
+        Hir::Target(hir::Target { identifier: identifier.to_owned(), children })
     }
 
     fn function(
@@ -341,7 +355,8 @@ mod tests {
 
     #[test]
     fn one_child() {
-        let file_contents = "FooTest\n└── when something bad happens\n   └── it should revert";
+        let file_contents =
+            "FooTest\n└── when something bad happens\n   └── it should revert";
         assert_eq!(
             translate(file_contents).unwrap(),
             root(vec![target(
@@ -372,14 +387,20 @@ mod tests {
                     function(
                         "test_panic_when_stuff_called".to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(18, 2, 1), Position::new(76, 3, 23)),
+                        Span::new(
+                            Position::new(18, 2, 1),
+                            Position::new(76, 3, 23)
+                        ),
                         None,
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
                     function(
                         "test_panic_given_not_stuff_called".to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(78, 4, 1), Position::new(139, 5, 23)),
+                        Span::new(
+                            Position::new(78, 4, 1),
+                            Position::new(139, 5, 23)
+                        ),
                         None,
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
@@ -410,14 +431,20 @@ FooTest
                     function(
                         "when_stuff_called".to_owned(),
                         hir::FunctionTy::Modifier,
-                        Span::new(Position::new(9, 3, 1), Position::new(234, 9, 32)),
+                        Span::new(
+                            Position::new(9, 3, 1),
+                            Position::new(234, 9, 32)
+                        ),
                         None,
                         None
                     ),
                     function(
                         "test_when_stuff_called".to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(9, 3, 1), Position::new(234, 9, 32)),
+                        Span::new(
+                            Position::new(9, 3, 1),
+                            Position::new(234, 9, 32)
+                        ),
                         Some(vec!["when_stuff_called".to_owned()]),
                         Some(vec![
                             comment("It should do stuff.".to_owned()),
@@ -427,14 +454,20 @@ FooTest
                     function(
                         "test_panic_when_a_called".to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(75, 5, 5), Position::new(134, 6, 28)),
+                        Span::new(
+                            Position::new(75, 5, 5),
+                            Position::new(134, 6, 28)
+                        ),
                         Some(vec!["when_stuff_called".to_owned()]),
                         Some(vec![comment("it should revert".to_owned()),])
                     ),
                     function(
                         "test_when_b_called".to_owned(),
                         hir::FunctionTy::Test,
-                        Span::new(Position::new(173, 8, 5), Position::new(234, 9, 32)),
+                        Span::new(
+                            Position::new(173, 8, 5),
+                            Position::new(234, 9, 32)
+                        ),
                         Some(vec!["when_stuff_called".to_owned()]),
                         Some(vec![comment("it should not revert".to_owned()),])
                     ),
