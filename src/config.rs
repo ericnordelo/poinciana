@@ -36,7 +36,7 @@ impl Default for Commands {
     }
 }
 
-/// Main entrypoint of `bulloak`'s execution.
+/// Main entrypoint of `poinciana`'s execution.
 pub fn run() -> anyhow::Result<()> {
     let config: Config = Figment::new()
         .merge(Serialized::defaults(Config::parse()))
