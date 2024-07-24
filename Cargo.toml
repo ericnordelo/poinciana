@@ -1,6 +1,6 @@
 [package]
 authors = ["Eric Nordelo <eric.nordelo39@gmail.com>"]
-version = "0.1.0"
+version = "0.0.1"
 name = "poinciana"
 license = "MIT OR Apache-2.0"
 edition = "2021"
