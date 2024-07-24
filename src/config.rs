@@ -44,7 +44,7 @@ pub fn run() -> anyhow::Result<()> {
 
     match &config.command {
         Commands::Scaffold(command) => command.run(&config),
-        Commands::Check(command) => command.run(&config),
+        Commands::Check(_) => panic!("Check command not implemented yet."),
     }
 }
 
