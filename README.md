@@ -18,7 +18,7 @@ and [bulloak](https://github.com/alexfertel/bulloak).
 ## Installation
 
 ```bash
-cargo install poinciana
+cargo install poinciana --git https://github.com/ericnordelo/poinciana
 ```
 
 ### VSCode
@@ -72,14 +72,14 @@ fn test_panic_when_a_condition_is_met() {
 
 ## Trees
 
-`bulloak scaffold` scaffolds Solidity test files based on `.tree` specifications
+`ponciana scaffold` scaffolds Cairo test files based on `.tree` specifications
 that follow the
-[Branching Tree Technique](https://twitter.com/PaulRBerg/status/1682346315806539776).
+[Branching Tree Technique](https://twitter.com/PaulRBerg/status/1682346315806539776). The tree parser implementation is currently coming from `bulloak`, which is Solidity optimized. In the future we may update the tree syntax to better fit the Cairo ecosystem.
 
 Currently, there is on-going
 [discussion](https://github.com/alexfertel/bulloak/discussions) on how to handle
 different edge-cases to better empower the Solidity community. This section is a
-description of the current implementation of the compiler.
+description of the current implementation of the bulloak compiler.
 
 ### Terminology
 
@@ -92,9 +92,9 @@ description of the current implementation of the compiler.
 Each `tree` file should describe at least one function under test. Trees follow
 these rules:
 
-- The first line is the root tree identifier, composed of the contract and
+- The first line is the root tree identifier, composed of the module (contract or component) and
   function names which should be delimited by a double colon.
-- `bulloak` expects you to use `├` and `└` characters to denote branches.
+- `poinciana` expects you to use `├` and `└` characters to denote branches.
 - If a branch starts with either `when` or `given`, it is a condition.
   - `when` and `given` are interchangeable.
 - If a branch starts with `it`, it is an action.
@@ -105,11 +105,15 @@ these rules:
 - Multiple trees can be defined in the same file to describe different functions
   by following the same rules, separating them with two newlines.
 
-Take the following Solidity function:
+Take the following Cairo function:
 
-```solidity
-function hashPair(bytes32 a, bytes32 b) private pure returns (bytes32) {
-    return a < b ? hash(a, b) : hash(b, a);
+```cairo
+fn hash_pair(a: u256, b: u256) -> u256 {
+  if (a < b) {
+    hash(a, b)
+  } else {
+    hash(b, a)
+  }
 }
 ```
 
@@ -119,51 +123,51 @@ A reasonable spec for the above function would be:
 HashPairTest
 ├── It should never revert.
 ├── When first arg is smaller than second arg
-│   └── It should match the result of `keccak256(abi.encodePacked(a,b))`.
+│   └── It should match the result of `hash(a, b)`.
 └── When first arg is bigger than second arg
-    └── It should match the result of `keccak256(abi.encodePacked(b,a))`.
+    └── It should match the result of `hash(b, a)`.
 ```
 
 There is a top-level action that will generate a test to check the function
 invariant that it should never revert.
 
 Then, we have the two possible preconditions: `a < b` and `a >= b`. Both
-branches end in an action that will make `bulloak scaffold` generate the
+branches end in an action that will make `poinciana scaffold` generate the
 respective test.
 
 Note the following things:
 
 - Actions are written with ending dots but conditions are not. This is because
   actions support any character, but conditions don't. Since conditions are
-  transformed into modifiers, they have to be valid Solidity identifiers.
-- You can have top-level actions without conditions. Currently, `bulloak` also
+  transformed into modifiers, they have to be valid Cairo identifiers.
+- You can have top-level actions without conditions. Currently, `poinciana` also
   supports actions with sibling conditions, but this might get removed in a
   future version per this
   [discussion](https://github.com/alexfertel/bulloak/issues/22).
 - The root of the tree will be emitted as the name of the test contract.
 
-Suppose you have additional Solidity functions that you want to test in the same
-test contract, say `Utils` within `utils.t.sol`:
+Suppose you have additional Cairo functions that you want to test in the same
+test contract, say `Utils` within `utils.t.cairo`:
 
-```solidity
-function min(uint256 a, uint256 b) private pure returns (uint256) {
-    return a < b ? a : b;
+```cairo
+fn min(a: u256, b: u256) -> u256 {
+    if a < b { a } else { b }
 }
 
-function max(uint256 a, uint256 b) private pure returns (uint256) {
-    return a > b ? a : b;
+fn max(a: u256, b: u256) -> u256 {
+    if a > b { a } else { b }
 }
 ```
 
 The full spec for all the above functions would be:
 
 ```tree
-Utils::hashPair
+Utils::hash_pair
 ├── It should never revert.
 ├── When first arg is smaller than second arg
-│   └── It should match the result of `keccak256(abi.encodePacked(a,b))`.
+│   └── It should match the result of `hash(a, b)`.
 └── When first arg is bigger than second arg
-    └── It should match the result of `keccak256(abi.encodePacked(b,a))`.
+    └── It should match the result of `hash(b, a)`.
 
 
 Utils::min
@@ -184,12 +188,19 @@ Utils::max
 
 Note the following things:
 
-- Contract identifiers must be present in all roots.
-- Contract identifiers that are missing from subsequent trees, or otherwise
-  mismatched from the first tree root identifier, will cause `bulloak` to error.
-  This violation is not currently fixable with `bulloak check --fix` so will
-  need to be manually corrected.
+- Module identifiers must be present in all roots.
+- Module identifiers that are missing from subsequent trees, or otherwise
+  mismatched from the first tree root identifier, will cause `poinciana` to error.
 - Duplicate conditions between separate trees will be deduplicated when
-  transformed into Solidity modifiers.
+  transformed into Cairo modifiers (helpers).
 - The function part of the root identifier for each tree will be emitted as part
-  of the name of the Solidity test (e.g. `test_MinShouldNeverRevert`).
+  of the name of the Cairo test (e.g. `test_min_should_never_revert`).
+
+## License
+
+This project is licensed under either of:
+
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+  https://www.apache.org/licenses/LICENSE-2.0).
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or
+  https://opensource.org/licenses/MIT).
